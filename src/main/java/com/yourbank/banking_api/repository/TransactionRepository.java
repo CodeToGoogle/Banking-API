@@ -22,16 +22,17 @@ public interface TransactionRepository extends JpaRepository<Transaction, Long> 
     );
 
     @Query("""
-        SELECT t FROM Transaction t
-        WHERE t.account.branch.id = :branchId
-          AND t.createdAt BETWEEN :startDate AND :endDate
-          AND (:type IS NULL OR t.type = :type)
-    """)
+    SELECT t FROM Transaction t
+    WHERE t.account.branch.id = :branchId
+      AND t.createdAt BETWEEN :startDate AND :endDate
+      AND (:type IS NULL OR t.type = :type)
+""")
     Page<Transaction> findBranchTransactions(
             @Param("branchId") Long branchId,
             @Param("startDate") LocalDateTime startDate,
             @Param("endDate") LocalDateTime endDate,
-            @Param("type") String type,
+            @Param("type") com.yourbank.banking_api.model.TransactionType type,
             Pageable pageable
     );
+
 }

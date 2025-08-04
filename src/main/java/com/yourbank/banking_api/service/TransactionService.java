@@ -17,7 +17,9 @@ import com.yourbank.banking_api.repository.TransactionRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -168,25 +170,43 @@ public class TransactionService {
             throw new ResourceNotFoundException("Branch not found with id: " + branchId);
         }
 
-        // Handle date range (with null check)
-        LocalDateTime startOfDay = date != null ? date.atStartOfDay() : LocalDateTime.now().minusMonths(1);
-        LocalDateTime endOfDay = date != null ? date.atTime(23, 59, 59) : LocalDateTime.now();
+        // Date range
+        LocalDateTime startOfDay = (date != null) ? date.atStartOfDay() : LocalDateTime.now().minusMonths(1);
+        LocalDateTime endOfDay = (date != null) ? date.atTime(23, 59, 59) : LocalDateTime.now();
 
-        // Handle type filter
-        String filterType = (type != null && !type.isEmpty()) ? type : null;
+        // Convert string type to enum safely
+        TransactionType filterType = null;
+        if (type != null && !type.isEmpty()) {
+            try {
+                filterType = TransactionType.valueOf(type.toUpperCase());
+            } catch (IllegalArgumentException e) {
+                throw new IllegalArgumentException("Invalid transaction type: " + type);
+            }
+        }
 
-        // Get transactions from repository
+        // Apply default sort by createdAt DESC
+        Pageable finalPageable = pageable;
+        if (pageable.getSort().isUnsorted()) {
+            finalPageable = PageRequest.of(
+                    pageable.getPageNumber(),
+                    pageable.getPageSize(),
+                    Sort.by("createdAt").descending()
+            );
+        }
+
+        // Fetch transactions
         Page<Transaction> transactions = transactionRepository.findBranchTransactions(
                 branchId,
                 startOfDay,
                 endOfDay,
                 filterType,
-                pageable
+                finalPageable
         );
 
         // Convert to DTO
         return transactions.map(this::convertToDTO);
     }
+
 
     private TransactionDTO convertToDTO(Transaction transaction) {
         return TransactionDTO.builder()
